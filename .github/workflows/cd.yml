@@ -26,8 +26,9 @@ jobs:
           pkill -f 'uvicorn.*8000' > /dev/null 2>&1 || true
           sleep 1
 
-          echo ">>> Khởi chạy server FastAPI dạng daemon độc lập (PPID 1)..."
-          setsid -f python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 >> server.log 2>&1
+          echo ">>> Khởi chạy server FastAPI dạng daemon độc lập (env -i)..."
+          env -i HOME=/root PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/cuda/bin \
+            nohup python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 >> server.log 2>&1 < /dev/null &
           sleep 3
 
       - name: 4. Kiểm tra sức khỏe ứng dụng (Healthcheck)
@@ -57,7 +58,8 @@ jobs:
 
           if ! pgrep -x cloudflared > /dev/null; then
             echo ">>> Khởi chạy Cloudflare Tunnel mới..."
-            setsid -f cloudflared tunnel --url http://127.0.0.1:8000 >> /tmp/cf_tunnel.log 2>&1
+            env -i HOME=/root PATH=/usr/local/bin:/usr/bin:/bin \
+              nohup cloudflared tunnel --url http://127.0.0.1:8000 >> /tmp/cf_tunnel.log 2>&1 < /dev/null &
             sleep 6
           fi
 
