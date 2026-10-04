@@ -20,11 +20,12 @@ python3 -m app.ml.train
 echo ">> [3/5] Dọn dẹp tiến trình cũ trên cổng 8000..."
 fuser -k 8000/tcp > /dev/null 2>&1 || true
 pkill -f 'uvicorn.*8000' > /dev/null 2>&1 || true
+tmux kill-session -t house_price_app 2>/dev/null || true
 sleep 1
 
-# 4. Khởi chạy Uvicorn trong background
+# 4. Khởi chạy Uvicorn trong background (tmux)
 echo ">> [4/5] Khởi chạy FastAPI Uvicorn trên 0.0.0.0:8000..."
-nohup python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > "${DIR}/server.log" 2>&1 < /dev/null &
+tmux new-session -d -s house_price_app "cd ${DIR} && python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 >> ${DIR}/server.log 2>&1"
 sleep 2
 
 # 5. Khởi chạy Cloudflare Tunnel công khai
@@ -36,7 +37,8 @@ if ! command -v cloudflared &> /dev/null; then
 fi
 
 if ! pgrep -x cloudflared > /dev/null; then
-    nohup cloudflared tunnel --url http://127.0.0.1:8000 > /tmp/cf_tunnel.log 2>&1 < /dev/null &
+    tmux kill-session -t cf_tunnel 2>/dev/null || true
+    tmux new-session -d -s cf_tunnel "cloudflared tunnel --url http://127.0.0.1:8000 > /tmp/cf_tunnel.log 2>&1"
     sleep 4
 fi
 
