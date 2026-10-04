@@ -1,0 +1,26 @@
+{
+  "model_type": "LinearRegression (Ordinary Least Squares)",
+  "features": [
+    "area_m2",
+    "bedrooms",
+    "bathrooms",
+    "distance_to_center_km",
+    "house_age_years"
+  ],
+  "coefficients": {
+    "area_m2": 0.0535,
+    "bedrooms": 0.27276,
+    "bathrooms": 0.16964,
+    "distance_to_center_km": -0.11212,
+    "house_age_years": -0.03665
+  },
+  "intercept": 1.02665,
+  "metrics": {
+    "r2_score": 0.9953,
+    "mae_billion_vnd": 0.1928,
+    "rmse_billion_vnd": 0.2376,
+    "test_sample_size": 60,
+    "train_sample_size": 240
+  },
+  "trained_at": "2026-10-04T02:30:04.371480+00:00"
+}

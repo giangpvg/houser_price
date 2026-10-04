@@ -1,0 +1,90 @@
+name: CD - Triển Khai Tự Động Lên Colab Server (Cách 2 - Self-Hosted Runner)
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  deploy_to_colab:
+    name: Zero-Touch Deployment to Colab
+    runs-on: [ self-hosted, colab ]
+
+    steps:
+      - name: 1. Kéo mã nguồn mới nhất
+        uses: actions/checkout@v4
+
+      - name: 2. Cài đặt dependencies và kiểm tra mô hình
+        run: |
+          python3 -m pip install --break-system-packages -r requirements.txt
+          python3 -m app.ml.train
+
+      - name: 3. Khởi chạy ứng dụng FastAPI Uvicorn
+        run: |
+          echo ">>> Dọn dẹp tiến trình cũ trên cổng 8000..."
+          fuser -k 8000/tcp > /dev/null 2>&1 || true
+          pkill -f 'uvicorn.*8000' > /dev/null 2>&1 || true
+          sleep 1
+
+          echo ">>> Khởi chạy server FastAPI chạy ngầm..."
+          nohup python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > server.log 2>&1 < /dev/null &
+          sleep 3
+
+      - name: 4. Kiểm tra sức khỏe ứng dụng (Healthcheck)
+        run: |
+          echo ">>> Kiểm tra trạng thái cổng 8000..."
+          for i in {1..10}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Ứng dụng đã sẵn sàng trên cổng 8000! (HTTP 200)"
+              exit 0
+            fi
+            echo "⏳ Đang thử lại ($i/10)... Mã HTTP: $STATUS"
+            sleep 2
+          done
+          echo "❌ Lỗi: Ứng dụng không phản hồi sau 20 giây!"
+          cat server.log || true
+          exit 1
+
+      - name: 5. Khởi chạy Cloudflare Public Tunnel & Lấy URL
+        id: tunnel
+        run: |
+          if ! command -v cloudflared &> /dev/null; then
+            echo ">>> Cài đặt cloudflared..."
+            curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
+            chmod +x /usr/local/bin/cloudflared
+          fi
+
+          if ! pgrep -x cloudflared > /dev/null; then
+            echo ">>> Khởi chạy Cloudflare Tunnel mới..."
+            nohup cloudflared tunnel --url http://127.0.0.1:8000 > /tmp/cf_tunnel.log 2>&1 < /dev/null &
+            sleep 6
+          fi
+
+          PUBLIC_URL=$(grep -o 'https://[a-zA-Z0-9-]*\.trycloudflare\.com' /tmp/cf_tunnel.log | head -n 1 || echo "")
+          if [ -z "$PUBLIC_URL" ]; then
+            sleep 3
+            PUBLIC_URL=$(grep -o 'https://[a-zA-Z0-9-]*\.trycloudflare\.com' /tmp/cf_tunnel.log | tail -n 1 || echo "")
+          fi
+
+          echo "PUBLIC_URL=$PUBLIC_URL" >> $GITHUB_ENV
+          echo "URL_FOUND=$PUBLIC_URL"
+
+      - name: 6. Xuất bản Thông Báo & Link Ra GitHub Summary
+        run: |
+          echo "## 🚀 Triển Khai Lên Colab Server Thành Công!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Thuộc tính | Giá trị |" >> $GITHUB_STEP_SUMMARY
+          echo "| :--- | :--- |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Dịch vụ** | 🏡 AI Dự Đoán Giá Nhà (Linear Regression) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Trạng thái** | 🟢 Online (Healthy) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Máy chủ** | Google Colab Server |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Cổng dịch vụ** | \`8000\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Link Nội bộ (Tailscale)** | \`http://100.91.70.122:8000\` |" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$PUBLIC_URL" ]; then
+            echo "| **Link Công khai (Public)** | [👉 BẤM VÀO ĐÂY ĐỂ MỞ ỨNG DỤNG]($PUBLIC_URL) |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "> 🌐 **Đường link công khai để chia sẻ cho mọi người:** \`$PUBLIC_URL\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| **Link Công khai (Public)** | Đang khởi tạo... Xem tại \`/tmp/cf_tunnel.log\` trên Colab |" >> $GITHUB_STEP_SUMMARY
+          fi

@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🏡 AI Dự Đoán Giá Nhà | Linear Regression & CI/CD Pipeline</title>
+  <meta name="description" content="Ứng dụng AI dự đoán giá nhà sử dụng mô hình Hồi quy tuyến tính (Linear Regression) với backend FastAPI và quy trình CI/CD tự động lên Google Colab Server.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <!-- Ambient background glow -->
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+  <div class="bg-glow bg-glow-3"></div>
+
+  <div class="app-container">
+    <!-- Header Section -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="badge-pill">
+          <span class="pulse-dot"></span>
+          <span>Linear Regression AI • Colab GPU Server</span>
+        </div>
+        <h1 class="app-title">🏡 AI Dự Đoán Giá Nhà</h1>
+        <p class="app-subtitle">Hệ thống định giá bất động sản tự động sử dụng mô hình Hồi quy tuyến tính (OLS), giải thích trọng số và CI/CD tự động hóa.</p>
+      </div>
+      <div class="header-right">
+        <div class="server-status-card" id="server-status-badge">
+          <div class="status-indicator online"></div>
+          <div class="status-text">
+            <span class="status-label">Máy chủ Colab:</span>
+            <span class="status-val" id="server-host-val">100.91.70.122:8000</span>
+          </div>
+        </div>
+        <a href="/docs" target="_blank" class="btn-secondary" id="btn-swagger-docs">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          API Swagger
+        </a>
+      </div>
+    </header>
+
+    <!-- Preset Scenarios Quick Select -->
+    <section class="preset-section" aria-label="Mẫu bất động sản gợi ý">
+      <span class="preset-title">⚡ Chọn mẫu nhanh:</span>
+      <div class="preset-group">
+        <button type="button" class="preset-btn active" id="preset-condo" data-area="85" data-beds="3" data-baths="2" data-dist="4.5" data-age="2">
+          🏢 Chung cư cao cấp (85m²)
+        </button>
+        <button type="button" class="preset-btn" id="preset-townhouse" data-area="120" data-beds="4" data-baths="3" data-dist="1.5" data-age="5">
+          🏛️ Nhà phố trung tâm (120m²)
+        </button>
+        <button type="button" class="preset-btn" id="preset-villa" data-area="220" data-beds="5" data-baths="4" data-dist="14" data-age="1">
+          🏖️ Biệt thự ngoại ô (220m²)
+        </button>
+        <button type="button" class="preset-btn" id="preset-budget" data-area="45" data-beds="2" data-baths="1" data-dist="12" data-age="8">
+          🏠 Căn hộ khởi nghiệp (45m²)
+        </button>
+      </div>
+    </section>
+
+    <!-- Main Workspace Grid -->
+    <main class="main-grid">
+      <!-- Left Column: Input Features Form -->
+      <section class="card input-card" aria-label="Thông số đặc trưng">
+        <div class="card-header">
+          <div class="card-icon">🎛️</div>
+          <div>
+            <h2 class="card-title">Thông Số Căn Nhà</h2>
+            <p class="card-desc">Điều chỉnh các biến số để mô hình tính toán giá trị tương ứng</p>
+          </div>
+        </div>
+
+        <form id="prediction-form" class="feature-form">
+          <!-- Feature 1: Area -->
+          <div class="form-group">
+            <div class="group-label-row">
+              <label for="input-area" class="field-label">
+                <span class="field-icon">📐</span> Diện tích sàn sử dụng
+              </label>
+              <div class="val-badge"><span id="val-area">85</span> m²</div>
+            </div>
+            <div class="slider-row">
+              <input type="range" id="slider-area" min="30" max="300" step="1" value="85" class="custom-slider">
+              <input type="number" id="input-area" min="20" max="500" step="0.5" value="85" class="custom-input-num">
+            </div>
+          </div>
+
+          <!-- Feature 2: Bedrooms -->
+          <div class="form-group">
+            <div class="group-label-row">
+              <label for="input-beds" class="field-label">
+                <span class="field-icon">🛏️</span> Số phòng ngủ
+              </label>
+              <div class="val-badge"><span id="val-beds">3</span> phòng</div>
+            </div>
+            <div class="slider-row">
+              <input type="range" id="slider-beds" min="1" max="8" step="1" value="3" class="custom-slider">
+              <input type="number" id="input-beds" min="1" max="10" step="1" value="3" class="custom-input-num">
+            </div>
+          </div>
+
+          <!-- Feature 3: Bathrooms -->
+          <div class="form-group">
+            <div class="group-label-row">
+              <label for="input-baths" class="field-label">
+                <span class="field-icon">🚿</span> Số phòng tắm / WC
+              </label>
+              <div class="val-badge"><span id="val-baths">2</span> phòng</div>
+            </div>
+            <div class="slider-row">
+              <input type="range" id="slider-baths" min="1" max="6" step="1" value="2" class="custom-slider">
+              <input type="number" id="input-baths" min="1" max="8" step="1" value="2" class="custom-input-num">
+            </div>
+          </div>
+
+          <!-- Feature 4: Distance to Center -->
+          <div class="form-group">
+            <div class="group-label-row">
+              <label for="input-dist" class="field-label">
+                <span class="field-icon">📍</span> Khoảng cách tới trung tâm
+              </label>
+              <div class="val-badge"><span id="val-dist">4.5</span> km</div>
+            </div>
+            <div class="slider-row">
+              <input type="range" id="slider-dist" min="0.5" max="30" step="0.5" value="4.5" class="custom-slider">
+              <input type="number" id="input-dist" min="0.5" max="50" step="0.1" value="4.5" class="custom-input-num">
+            </div>
+          </div>
+
+          <!-- Feature 5: House Age -->
+          <div class="form-group">
+            <div class="group-label-row">
+              <label for="input-age" class="field-label">
+                <span class="field-icon">⏳</span> Tuổi đời công trình
+              </label>
+              <div class="val-badge"><span id="val-age">2</span> năm</div>
+            </div>
+            <div class="slider-row">
+              <input type="range" id="slider-age" min="0" max="30" step="1" value="2" class="custom-slider">
+              <input type="number" id="input-age" min="0" max="50" step="0.5" value="2" class="custom-input-num">
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" id="btn-predict" class="btn-primary">
+              <span class="btn-sparkle">✨</span>
+              <span class="btn-text">Dự Đoán Giá Nhà</span>
+            </button>
+            <button type="button" id="btn-retrain" class="btn-outline" title="Tái huấn luyện mô hình">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+              Tái huấn luyện
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Right Column: Prediction Results & Feature Explanation -->
+      <section class="card result-card" aria-label="Kết quả dự đoán">
+        <div class="card-header">
+          <div class="card-icon">🎯</div>
+          <div>
+            <h2 class="card-title">Kết Quả Định Giá AI</h2>
+            <p class="card-desc">Giá trị ước tính và phân rã các thành phần giá trị</p>
+          </div>
+        </div>
+
+        <!-- Big Hero Price Display -->
+        <div class="hero-price-panel" id="hero-price-panel">
+          <div class="hero-price-label">GIÁ ƯỚC TÍNH TỔNG THỂ</div>
+          <div class="hero-price-val" id="hero-price-display">-- Tỷ VNĐ</div>
+          <div class="hero-price-meta">
+            <span class="unit-rate-chip" id="unit-rate-chip">-- Triệu VNĐ/m²</span>
+            <span class="interval-chip" id="interval-chip">Khoảng ước tính: --</span>
+          </div>
+        </div>
+
+        <!-- Linear Breakdown Breakdown -->
+        <div class="explanation-box">
+          <div class="box-title-row">
+            <span class="box-title">📊 Phân Rã Thành Phần Giá (Linear Decomposition)</span>
+            <span class="math-tag">y = w₀ + Σ(wᵢ · xᵢ)</span>
+          </div>
+          <p class="box-subtitle">Mô hình Linear Regression phân tích chính xác từng yếu tố đóng góp hoặc làm giảm giá trị căn nhà:</p>
+
+          <div class="contribution-list" id="contribution-list">
+            <!-- Populated via JavaScript -->
+            <div class="contrib-row loading-row">Đang tải mô hình...</div>
+          </div>
+        </div>
+
+        <!-- Real-time Formula Visualizer -->
+        <div class="formula-preview-box">
+          <div class="formula-title">Phương trình hồi quy thời gian thực:</div>
+          <div class="formula-code" id="live-formula-code">Đang nạp trọng số mô hình...</div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom Row: Model Telemetry & CI/CD Pipeline Status -->
+    <section class="telemetry-grid">
+      <!-- Model Metrics Card -->
+      <div class="card telemetry-card">
+        <div class="card-header-sm">
+          <span class="metric-icon">📈</span>
+          <span class="telemetry-title">Hiệu Năng Mô Hình (Metrics)</span>
+        </div>
+        <div class="metrics-row">
+          <div class="metric-item">
+            <div class="m-val" id="metric-r2">0.996</div>
+            <div class="m-label">R² Score (Độ chuẩn xác)</div>
+          </div>
+          <div class="metric-item">
+            <div class="m-val" id="metric-mae">~0.18 Tỷ</div>
+            <div class="m-label">MAE (Sai số trung bình)</div>
+          </div>
+          <div class="metric-item">
+            <div class="m-val" id="metric-rmse">~0.23 Tỷ</div>
+            <div class="m-label">RMSE (Sai số toàn phương)</div>
+          </div>
+          <div class="metric-item">
+            <div class="m-val">OLS</div>
+            <div class="m-label">Thuật toán Linear Regression</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CI/CD Architecture Card -->
+      <div class="card telemetry-card">
+        <div class="card-header-sm">
+          <span class="metric-icon">🚀</span>
+          <span class="telemetry-title">Quy Trình CI/CD Colab Server</span>
+        </div>
+        <div class="cicd-steps-list">
+          <div class="cicd-step complete">
+            <span class="step-num">1</span>
+            <span class="step-name">Local Development (Git)</span>
+          </div>
+          <div class="cicd-arrow">→</div>
+          <div class="cicd-step complete">
+            <span class="step-num">2</span>
+            <span class="step-name">Pytest Unit & Integration Tests</span>
+          </div>
+          <div class="cicd-arrow">→</div>
+          <div class="cicd-step active">
+            <span class="step-num">3</span>
+            <span class="step-name">Deploy script / GitHub Action</span>
+          </div>
+          <div class="cicd-arrow">→</div>
+          <div class="cicd-step complete">
+            <span class="step-num">4</span>
+            <span class="step-name">Google Colab (Tesla T4)</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <div>Dự án AI Dự Đoán Giá Nhà • Backend: <strong>FastAPI</strong> • ML Engine: <strong>scikit-learn</strong> • Colab IP: <strong>100.91.70.122</strong></div>
+    </footer>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
