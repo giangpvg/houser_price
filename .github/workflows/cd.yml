@@ -24,11 +24,10 @@ jobs:
           echo ">>> Dọn dẹp tiến trình cũ trên cổng 8000..."
           fuser -k 8000/tcp > /dev/null 2>&1 || true
           pkill -f 'uvicorn.*8000' > /dev/null 2>&1 || true
-          tmux kill-session -t house_price_app 2>/dev/null || true
           sleep 1
 
-          echo ">>> Khởi chạy server FastAPI trong session độc lập (tmux)..."
-          tmux new-session -d -s house_price_app "cd $GITHUB_WORKSPACE && python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 >> server.log 2>&1"
+          echo ">>> Khởi chạy server FastAPI dạng daemon độc lập (PPID 1)..."
+          setsid -f python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 >> server.log 2>&1
           sleep 3
 
       - name: 4. Kiểm tra sức khỏe ứng dụng (Healthcheck)
@@ -58,8 +57,7 @@ jobs:
 
           if ! pgrep -x cloudflared > /dev/null; then
             echo ">>> Khởi chạy Cloudflare Tunnel mới..."
-            tmux kill-session -t cf_tunnel 2>/dev/null || true
-            tmux new-session -d -s cf_tunnel "cloudflared tunnel --url http://127.0.0.1:8000 > /tmp/cf_tunnel.log 2>&1"
+            setsid -f cloudflared tunnel --url http://127.0.0.1:8000 >> /tmp/cf_tunnel.log 2>&1
             sleep 6
           fi
 
